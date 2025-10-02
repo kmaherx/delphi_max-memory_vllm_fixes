@@ -7,11 +7,11 @@ from typing import Union
 
 from transformers import AutoTokenizer
 from vllm import LLM, SamplingParams
-from vllm.inputs import TokensPrompt
 from vllm.distributed.parallel_state import (
     destroy_distributed_environment,
     destroy_model_parallel,
 )
+from vllm.inputs import TokensPrompt
 
 from delphi import logger
 
