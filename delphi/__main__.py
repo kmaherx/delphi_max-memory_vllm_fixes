@@ -455,7 +455,13 @@ async def run(
         )
 
     if run_cfg.verbose:
-        log_results(scores_path, visualize_path, run_cfg.hookpoints, run_cfg.scorers)
+        log_results(
+            scores_path,
+            visualize_path,
+            run_cfg.hookpoints,
+            run_cfg.scorers,
+            run_cfg.plot_results,
+        )
 
 
 if __name__ == "__main__":

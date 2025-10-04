@@ -220,3 +220,7 @@ class RunConfig(Serializable):
 
     """List of run stages to recompute. This is a debugging tool
     and may be removed in the future."""
+
+    plot_results: bool = False
+    """Whether to plot the results of the run.
+    Plotting requires Chrome and may not work on servers without browser support."""

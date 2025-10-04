@@ -285,17 +285,15 @@ def add_latent_f1(latent_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def log_results(
-    scores_path: Path, viz_path: Path, modules: list[str], scorer_names: list[str]
+    scores_path: Path,
+    viz_path: Path,
+    modules: list[str],
+    scorer_names: list[str],
+    plot_results: bool,
 ):
-    import_plotly()
-
     latent_df, counts = load_data(scores_path, modules)
     latent_df = latent_df[latent_df["score_type"].isin(scorer_names)]
     latent_df = add_latent_f1(latent_df)
-
-    plot_firing_vs_f1(
-        latent_df, num_tokens=10_000_000, out_dir=viz_path, run_label=scores_path.name
-    )
 
     if latent_df.empty:
         print("No data found")
@@ -321,11 +319,7 @@ def log_results(
             f" count threshold: {uninterpretable_features}"
         )
 
-    plot_roc_curve(latent_df, viz_path)
-
     processed_df = get_agg_metrics(latent_df, counts)
-
-    plot_accuracy_hist(processed_df, viz_path)
 
     for score_type in processed_df.score_type.unique():
         score_type_summary = processed_df[processed_df.score_type == score_type].iloc[0]
@@ -381,3 +375,11 @@ def log_results(
         print(f"""Positives: {score_type_summary['total_positives'].sum():.0f}""")
         print(f"""Negatives: {score_type_summary['total_negatives'].sum():.0f}""")
         print(f"Total: {score_type_summary['total_examples'].sum():.0f}")
+
+    if plot_results:
+        import_plotly()
+        plot_firing_vs_f1(
+            latent_df, num_tokens=10_000_000, out_dir=viz_path, run_label=scores_path.name
+        )
+        plot_roc_curve(latent_df, viz_path)
+        plot_accuracy_hist(processed_df, viz_path)
