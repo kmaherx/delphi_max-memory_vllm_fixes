@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from functools import partial
 
 import numpy as np
