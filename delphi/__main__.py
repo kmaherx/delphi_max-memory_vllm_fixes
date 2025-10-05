@@ -465,6 +465,7 @@ async def run(
             run_cfg.hookpoints,
             run_cfg.scorers,
             run_cfg.plot_results,
+            hookpoint_reverse_mapping,
         )
 
 

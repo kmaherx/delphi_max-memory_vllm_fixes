@@ -149,8 +149,14 @@ def compute_classification_metrics(conf: dict) -> dict:
     )
 
 
-def load_data(scores_path: Path, modules: list[str]):
-    """Load all on-disk data into a single DataFrame."""
+def load_data(scores_path: Path, modules: list[str], hookpoint_reverse_mapping: dict[str, str] | None = None):
+    """Load all on-disk data into a single DataFrame.
+    
+    Args:
+        scores_path: Path to the scores directory
+        modules: List of module names (config hookpoint format)
+        hookpoint_reverse_mapping: Mapping from model hookpoints to config hookpoints (for Gemma)
+    """
 
     def parse_score_file(path: Path) -> pd.DataFrame:
         """
@@ -182,6 +188,15 @@ def load_data(scores_path: Path, modules: list[str]):
 
     counts_file = scores_path.parent / "log" / "hookpoint_firing_counts.pt"
     counts = torch.load(counts_file, weights_only=True) if counts_file.exists() else {}
+    
+    # Create inverse mapping: model hookpoint -> config hookpoint
+    # This is needed because filenames use model hookpoint names (e.g., "layers.13")
+    # but counts dictionary now uses config hookpoint names (e.g., "layer_13/width_16k/average_l0_84")
+    model_to_config: dict[str, str] = {}
+    if hookpoint_reverse_mapping:
+        # Reverse the mapping: we have model->config, keep it as is
+        model_to_config = hookpoint_reverse_mapping
+    
     if not all(module in counts for module in modules):
         print("Missing firing counts for some modules, setting counts to None.")
         print(f"Missing modules: {[m for m in modules if m not in counts]}")
@@ -193,17 +208,28 @@ def load_data(scores_path: Path, modules: list[str]):
         if not score_type_dir.is_dir():
             continue
         for module in modules:
-            for file in score_type_dir.glob(f"*{module}*"):
+            # For Gemma: filenames contain model hookpoint names (e.g., "layers.13"),
+            # but we need to look up in counts using config hookpoint names (e.g., "layer_13/width_16k/average_l0_84")
+            # Find the model hookpoint name by searching the inverse mapping
+            model_hookpoint_for_glob = module
+            if model_to_config:
+                # Find which model hookpoint maps to this config hookpoint
+                for model_hp, config_hp in model_to_config.items():
+                    if config_hp == module:
+                        model_hookpoint_for_glob = model_hp
+                        break
+            
+            for file in score_type_dir.glob(f"*{model_hookpoint_for_glob}*"):
                 latent_idx = int(file.stem.split("latent")[-1])
 
                 latent_df = parse_score_file(file)
                 latent_df["score_type"] = score_type_dir.name
-                latent_df["module"] = module
+                latent_df["module"] = module  # Use config hookpoint name for consistency
                 latent_df["latent_idx"] = latent_idx
                 if counts:
                     latent_df["firing_count"] = (
                         counts[module][latent_idx].item()
-                        if latent_idx in counts[module]
+                        if latent_idx < len(counts[module])
                         else None
                     )
 
@@ -290,8 +316,9 @@ def log_results(
     modules: list[str],
     scorer_names: list[str],
     plot_results: bool,
+    hookpoint_reverse_mapping: dict[str, str] | None = None,
 ):
-    latent_df, counts = load_data(scores_path, modules)
+    latent_df, counts = load_data(scores_path, modules, hookpoint_reverse_mapping)
     latent_df = latent_df[latent_df["score_type"].isin(scorer_names)]
     latent_df = add_latent_f1(latent_df)
 
