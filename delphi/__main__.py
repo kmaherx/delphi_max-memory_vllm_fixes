@@ -14,14 +14,7 @@ from transformers import (
     AutoTokenizer,
     BitsAndBytesConfig,
     PreTrainedModel,
-    PreT    latent_cache = LatentCache(
-        model,
-        hookpoint_to_sparse_encode,
-        batch_size=run_cfg.batch_size,
-        transcode=transcode,
-        log_path=latents_path.parent / "log",
-        hookpoint_reverse_mapping=hookpoint_reverse_mapping,
-    )okenizer,
+    PreTrainedTokenizer,
     PreTrainedTokenizerFast,
 )
 
