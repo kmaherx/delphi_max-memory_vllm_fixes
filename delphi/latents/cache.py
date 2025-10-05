@@ -188,6 +188,7 @@ class LatentCache:
         transcode: bool = False,
         filters: dict[str, Float[Tensor, "indices"]] | None = None,
         log_path: Path | None = None,
+        hookpoint_reverse_mapping: dict[str, str] | None = None,
     ):
         """
         Initialize the LatentCache.
@@ -199,6 +200,7 @@ class LatentCache:
             transcode: Whether to transcode the model outputs.
             filters: Filters for selecting specific latents.
             log_path: Path to save logging output.
+            hookpoint_reverse_mapping: Mapping from model hookpoints to config hookpoints (for Gemma).
         """
         self.model = model
         self.hookpoint_to_sparse_encode = hookpoint_to_sparse_encode
@@ -207,6 +209,7 @@ class LatentCache:
         self.width = None
         self.cache = InMemoryCache(filters, batch_size=batch_size)
         self.hookpoint_firing_counts: dict[str, Tensor] = {}
+        self.hookpoint_reverse_mapping = hookpoint_reverse_mapping
 
         self.log_path = log_path
         if filters is not None:
@@ -286,13 +289,20 @@ class LatentCache:
                             if self.width is None:
                                 self.width = sae_latents.shape[2]
 
-                            if hookpoint not in self.hookpoint_firing_counts:
-                                self.hookpoint_firing_counts[hookpoint] = (
+                            # Use the reverse mapping to store firing counts with config hookpoint names
+                            # This ensures the keys in hookpoint_firing_counts.pt match run_cfg.hookpoints
+                            firing_count_key = (
+                                self.hookpoint_reverse_mapping[hookpoint]
+                                if self.hookpoint_reverse_mapping
+                                else hookpoint
+                            )
+                            if firing_count_key not in self.hookpoint_firing_counts:
+                                self.hookpoint_firing_counts[firing_count_key] = (
                                     firing_counts.cpu()
                                 )
                             else:
                                 self.hookpoint_firing_counts[
-                                    hookpoint
+                                    firing_count_key
                                 ] += firing_counts.cpu()
 
                 # Update the progress bar

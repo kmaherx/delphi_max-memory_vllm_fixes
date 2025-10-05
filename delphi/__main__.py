@@ -14,7 +14,14 @@ from transformers import (
     AutoTokenizer,
     BitsAndBytesConfig,
     PreTrainedModel,
-    PreTrainedTokenizer,
+    PreT    latent_cache = LatentCache(
+        model,
+        hookpoint_to_sparse_encode,
+        batch_size=run_cfg.batch_size,
+        transcode=transcode,
+        log_path=latents_path.parent / "log",
+        hookpoint_reverse_mapping=hookpoint_reverse_mapping,
+    )okenizer,
     PreTrainedTokenizerFast,
 )
 
@@ -52,7 +59,7 @@ def load_artifacts(run_cfg: RunConfig):
         token=run_cfg.hf_token,
     )
 
-    hookpoint_to_sparse_encode, transcode = load_hooks_sparse_coders(
+    hookpoint_to_sparse_encode, transcode, hookpoint_reverse_mapping = load_hooks_sparse_coders(
         model,
         run_cfg,
         compile=True,
@@ -63,6 +70,7 @@ def load_artifacts(run_cfg: RunConfig):
         hookpoint_to_sparse_encode,
         model,
         transcode,
+        hookpoint_reverse_mapping,
     )
 
 
@@ -295,8 +303,9 @@ def populate_cache(
     model: PreTrainedModel,
     hookpoint_to_sparse_encode: dict[str, Callable],
     latents_path: Path,
-    tokenizer: PreTrainedTokenizer | PreTrainedTokenizerFast,
+    tokenizer: PreTrainedTokenizer,
     transcode: bool,
+    hookpoint_reverse_mapping: dict[str, str] | None = None,
 ):
     """
     Populates an on-disk cache in `latents_path` with SAE latent activations.
@@ -336,6 +345,7 @@ def populate_cache(
         batch_size=cache_cfg.batch_size,
         transcode=transcode,
         log_path=log_path,
+        hookpoint_reverse_mapping=hookpoint_reverse_mapping,
     )
     cache.run(cache_cfg.n_tokens, tokens)
 
@@ -400,7 +410,7 @@ async def run(
 
     latent_range = torch.arange(run_cfg.max_latents) if run_cfg.max_latents else None
 
-    hookpoints, hookpoint_to_sparse_encode, model, transcode = load_artifacts(run_cfg)
+    hookpoints, hookpoint_to_sparse_encode, model, transcode, hookpoint_reverse_mapping = load_artifacts(run_cfg)
     tokenizer = AutoTokenizer.from_pretrained(run_cfg.model, token=run_cfg.hf_token)
 
     nrh = assert_type(
@@ -417,6 +427,7 @@ async def run(
             latents_path,
             tokenizer,
             transcode,
+            hookpoint_reverse_mapping,
         )
 
     del model, hookpoint_to_sparse_encode

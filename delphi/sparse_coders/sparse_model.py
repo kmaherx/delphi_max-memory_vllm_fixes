@@ -18,7 +18,7 @@ def load_hooks_sparse_coders(
     model: PreTrainedModel,
     run_cfg: RunConfig,
     compile: bool = False,
-) -> tuple[dict[str, Callable], bool]:
+) -> tuple[dict[str, Callable], bool, dict[str, str] | None]:
     """
     Load sparse coders for specified hookpoints.
 
@@ -27,7 +27,10 @@ def load_hooks_sparse_coders(
         run_cfg (RunConfig): The run configuration.
 
     Returns:
-        dict[str, Callable]: A dictionary mapping hookpoints to sparse coders.
+        tuple: A tuple containing:
+            - dict[str, Callable]: A dictionary mapping hookpoints to sparse coders.
+            - bool: Whether transcoding is enabled.
+            - dict[str, str] | None: Reverse mapping from model hookpoints to config hookpoints (Gemma only).
     """
 
     # Add SAE hooks to the model
@@ -38,6 +41,7 @@ def load_hooks_sparse_coders(
             run_cfg.hookpoints,
             compile=compile,
         )
+        hookpoint_reverse_mapping = None
     else:
         # model path will always be of the form google/gemma-scope-<size>-pt-<type>/
         # where <size> is the size of the model and <type> is either res or mlp
@@ -58,7 +62,7 @@ def load_hooks_sparse_coders(
             sae_sizes.append(sae_size)
             l0s.append(l0)
 
-        hookpoint_to_sparse_encode = load_gemma_hooks(
+        hookpoint_to_sparse_encode, hookpoint_reverse_mapping = load_gemma_hooks(
             model_path=model_path,
             ae_layers=layers,
             average_l0s=l0s,
@@ -71,7 +75,7 @@ def load_hooks_sparse_coders(
     # throw an error if the dictionary is empty
     if not hookpoint_to_sparse_encode:
         raise ValueError("No sparse coders loaded")
-    return hookpoint_to_sparse_encode, transcode
+    return hookpoint_to_sparse_encode, transcode, hookpoint_reverse_mapping
 
 
 def load_sparse_coders(

@@ -14,8 +14,10 @@ def load_gemma_autoencoders(
     type: str,
     dtype: torch.dtype = torch.bfloat16,
     device: str | torch.device = torch.device("cuda"),
-) -> dict[str, nn.Module]:
+) -> tuple[dict[str, nn.Module], dict[str, str]]:
     saes = {}
+    # Mapping from model hookpoint (e.g., "layers.13") to config hookpoint (e.g., "layer_13/width_16k/average_l0_84")
+    model_to_config_hookpoint = {}
 
     for layer, size, l0 in zip(ae_layers, sizes, average_l0s):
         path = f"layer_{layer}/width_{size}/average_l0_{l0}"
@@ -34,8 +36,9 @@ def load_gemma_autoencoders(
         )
 
         saes[hookpoint] = sae
+        model_to_config_hookpoint[hookpoint] = path
 
-    return saes
+    return saes, model_to_config_hookpoint
 
 
 def load_gemma_hooks(
@@ -46,8 +49,8 @@ def load_gemma_hooks(
     type: str,
     dtype: torch.dtype = torch.bfloat16,
     device: str | torch.device = torch.device("cuda"),
-):
-    saes = load_gemma_autoencoders(
+) -> tuple[dict[str, Callable], dict[str, str]]:
+    saes, model_to_config_hookpoint = load_gemma_autoencoders(
         model_path,
         ae_layers,
         average_l0s,
@@ -65,7 +68,7 @@ def load_gemma_hooks(
 
         hookpoint_to_sparse_encode[hookpoint] = partial(_forward, sae)
 
-    return hookpoint_to_sparse_encode
+    return hookpoint_to_sparse_encode, model_to_config_hookpoint
 
 
 # This is from the GemmaScope tutorial
